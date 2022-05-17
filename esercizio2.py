@@ -129,6 +129,9 @@ def sample(input_shp, input_raster):
     # CLOSE DATA SOURCE
     data_source = None
 
+    # CLOSE RASTER
+    dem = None
+
 
 def main():
     """ Two functions:

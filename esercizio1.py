@@ -130,6 +130,9 @@ def sample(input_csv, input_raster):
     my_csv.close()
     csv_output.close()
 
+    # CLOSE RASTER
+    dem = None
+
     # CLOSE DATA SOURCE
     data_source = None
 
