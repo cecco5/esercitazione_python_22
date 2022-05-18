@@ -142,6 +142,6 @@ def main():
     """
     #   gdal.Warp("dem_lombardia_100m_WGS32N.tif", "dem_lombardia_100m_ED32N.tif", dstSRS='EPSG:32632')
     for shapefile in glob.glob('shapefile/*.shp'):
-        #sample(shapefile, "dem_lombardia_100m_WGS32N.tif")
-        #print(f'{shapefile} done!')
-        print("Done!")
+        sample(shapefile, "dem_lombardia_100m_WGS32N.tif")
+        print(f'{shapefile} done!')
+

@@ -135,8 +135,9 @@ def main():
     """
      sample: to sample the reprojected raster and to create new shapefiles with coordinates and height values
     """
-    for shapefile in glob.glob('shapefile-v/*.shp'):
-        #sample("dem_lombardia_100m_ED32N.tif", shapefile)
+    for shapefile in glob.glob('shapefile/*.shp'):
+        sample("dem_lombardia_100m_ED32N.tif", shapefile)
         print(f'{shapefile} done!')
         #print("Done!")
+
 

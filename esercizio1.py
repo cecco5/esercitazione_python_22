@@ -30,20 +30,21 @@ os.chdir('C:/esercitazione_python_22')
 
 
 def sample(input_csv, input_raster):
-    """ Function to sample the raster and create ESRI shapefile"""
+    """ Function to sample the raster extracting height values, create ESRI shapefile and new csv with height field"""
 
-    # RASTER: cycle on it to get the values
+    # RASTER: iterating dem to get the values
     dem = gdal.Open(input_raster)    # open raster
     band = dem.GetRasterBand(1)      # get band 1 of dem to represent it as a matrix of values (peak heights)
-    gt = dem.GetGeoTransform()       # get geotransform to read each value
+    gt = dem.GetGeoTransform()       # get geotransform to calculate pixel coords from map coords
 
     # CSV:
-    my_csv = open(input_csv, 'r')                   # open csv
-    reader = csv.DictReader(my_csv, delimiter=',')  # each row of csv is considered as a dictionary {'key','value}
+    my_csv = open(input_csv, 'r')                       # open csv
+    reader = csv.DictReader(my_csv, delimiter=',')      # each row of csv is considered as a dictionary {'key','value}
+
 
     # ESRI SHAPEFILE (.shp)
     driver = ogr.GetDriverByName('ESRI Shapefile')        # get ESRI driver
-    shape_name = input_csv.split(".")[0]+'.shp'           # initialization of shapefile
+    shape_name = input_csv.split(".")[0]+'_QUOTA.shp'           # initialization of shapefile
     data_source = driver.CreateDataSource(shape_name)
 
     # import reference system:
@@ -51,7 +52,7 @@ def sample(input_csv, input_raster):
     srs.ImportFromEPSG(32632)
 
     # creation of the layer of shapefile in GIS
-    layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)      # point shapefile in this case
+    layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)      # Point shapefile in this case
 
     # definition of shapefile fields
     field_name = ogr.FieldDefn('name', ogr.OFTString)   # OFTString is the field format -> string
@@ -119,10 +120,10 @@ def sample(input_csv, input_raster):
         # end of cycle
 
     output_csv_name = input_csv.split('.')[0]+'_QUOTA.csv'      # set new name for output_csv with height values
-    csv_output = open(output_csv_name, 'w')                     # new output csv file
+    csv_output = open(output_csv_name, 'w')                     # open new output csv file
 
     # ADD HEADER AND ALL THE VALUES TO OUTPUT CSV
-    writer = csv.writer(csv_output, delimiter=',')
+    writer = csv.writer(csv_output, delimiter=',')              # write in the output
     writer.writerow(header)
     writer.writerows(L)
 
@@ -144,8 +145,8 @@ def main():
     """
     #   gdal.Warp("dem_lombardia_100m_WGS32N.tif", "dem_lombardia_100m_ED32N.tif", dstSRS='EPSG:32632')
     for csv_file in glob.glob('csv/*.csv'):
-        #sample(csv_file, 'dem_lombardia_100m_WGS32N.tif')
-        print("Done!")
+        sample(csv_file, 'dem_lombardia_100m_WGS32N.tif')
+        print(f'[{csv_file}] done!')
 
 
 
