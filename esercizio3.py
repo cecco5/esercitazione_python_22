@@ -1,11 +1,11 @@
 """
 SHAPEFILE CREATOR - automating geographic analysis stuff
 
-This script allows the user to add COORDDX, COORDY and HEIGHT values (got from DEM values) to a list of shapefiles
-    1) DEM raster re-projection (from Geographic rs to Projected rs)
+This script allows the user to do the following tasks:
+    1) Shapefile re-projection to DEM srs
     2) Sample DEM to get coord_x, coord_y and height values, adding them as new fields to ESRI Shapefile
 
-This tool accepts raster files (.tif) and ESRI Shapefiles (.shp)
+This tool accepts raster files (.tif) and ESRI Shapefile (.shp)
 
 This script requires that `gdal` be installed within the Python
 environment you are running this script in.
@@ -14,39 +14,39 @@ This file can also be imported as a module and contains the following
 functions:
 
     * sample - the sample function + add new fields to shapefile
-    * main function: reprojection + apply sample to shapefiles
-
+    * main function: apply sample to shapefiles
 """
+
+
 from osgeo import gdal
-from osgeo import osr
 from osgeo import ogr
+from osgeo import osr
 from math import floor
 import glob
 import os
 
-# setting working directory
-os.chdir('C:/esercitazione_python_22')
+os.chdir('C:/esercitazione_python_22')  # setting wd
 
 
-def sample(input_shp, input_raster):
-    """ Function to sample the raster and add height values to ESRI shapefile"""
+def sample(input_raster, input_shp):
+    """Set shapefile srs + Sample dem to calculate map x, map y and h + add x,y,h fields to shapefile"""
 
-    #  INPUT RASTER:
-    dem = gdal.Open(input_raster)  # open raster
-    raster_band = dem.GetRasterBand(1)
-    gt_forward = dem.GetGeoTransform()                     # get geotransform
-    gt_reverse = gdal.InvGeoTransform(gt_forward)          # get inverted geotransform
+    # INPUT RASTER
+    dem = gdal.Open(input_raster)                   # open raster
+    dem_band = dem.GetRasterBand(1)                 # get the band of raster
+    gt_forward = dem.GetGeoTransform()              # get geotransform
+    gt_reverse = gdal.InvGeoTransform(gt_forward)   # get inverted geotransform
+    
 
     # OUTPUT_SHAPEFILE (.shp)
-    driver = ogr.GetDriverByName('ESRI Shapefile')        # get ESRI driver
-    shape_name = input_shp.split(".")[0] + '_QUOTA.shp'   # new name for the output_shapefile
-    data_source = driver.CreateDataSource(shape_name)     # initialization of shapefile
+    driver = ogr.GetDriverByName('ESRI Shapefile')          # get ESRI driver
+    shape_name = input_shp.split(".")[0] + '_QUOTA_ED50rp.shp'     # new name for the output_shapefile
+    data_source = driver.CreateDataSource(shape_name)       # initialization of shapefile
 
-    # import reference system:
-    srs = osr.SpatialReference()  # import SR from EPSG
-    srs.ImportFromEPSG(32632)
-
-    # creation of the layer of shapefile in GIS
+    # EXTRACTION OF DEM SRS
+    srs = osr.SpatialReference(wkt=dem.GetProjection())    # wkt = "well-known-text" for representing geometries of vectors on a map
+    # dem srs extracted
+    # creation of the layer of shapefile in GIS with the srs extracted
     layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)  # point shapefile in this case
 
     # DEFINITION OF OUTPUT SHAPEFILE FIELDS
@@ -72,8 +72,8 @@ def sample(input_shp, input_raster):
     layer.CreateField(ogr.FieldDefn('HEIGHT', ogr.OFTReal))
 
     # INPUT SHAPEFILE:
-    dataset = ogr.Open(input_shp)
-    input_layer = dataset.GetLayer()
+    dataset = ogr.Open(input_shp)           # open shapefile
+    input_layer = dataset.GetLayer()        # get access to layer
 
     # Iterating in the input_shapefile features in order to:
     # 1) extract map coord_x, coord_y and calculate height (from pixel coords). Then add them to relative output_shapefile fields
@@ -87,7 +87,7 @@ def sample(input_shp, input_raster):
         px = floor(px)  # x pixel
         py = floor(py)  # y pixel
 
-        height = float(raster_band.ReadAsArray(px, py, 1, 1))   # HEIGHT VALUE OF FEATURE
+        height = float(dem_band.ReadAsArray(px, py, 1, 1))  # HEIGHT VALUE OF FEATURE
 
         # definition of layer attribute of output_shapefile (element of attribute table in Qgis)
         output_feature = ogr.Feature(layer.GetLayerDefn())
@@ -103,13 +103,9 @@ def sample(input_shp, input_raster):
         output_feature.SetField('SHAPE_Leng', input_feature.GetField('SHAPE_Leng'))
         output_feature.SetField('SHAPE_Area', input_feature.GetField('SHAPE_Area'))
 
-        output_feature.SetField('X_COORD', mx)          # X_COORDINATE
-        output_feature.SetField('Y_COORD', my)          # Y_COORDINATE
-        output_feature.SetField('HEIGHT', height)       # HEIGHT
-
-        #print(type(output_feature.GetField('X_COORD')), type(output_feature.GetField('Y_COORD')), type(output_feature.GetField('HEIGHT')))
-        #print(output_feature.GetField('X_COORD'), output_feature.GetField('Y_COORD'), output_feature.GetField('HEIGHT'))
-        #break
+        output_feature.SetField('X_COORD', mx)     # X_COORDINATE
+        output_feature.SetField('Y_COORD', my)     # Y_COORDINATE
+        output_feature.SetField('HEIGHT', height)  # HEIGHT
 
         # FIELDS CREATED
 
@@ -118,10 +114,10 @@ def sample(input_shp, input_raster):
         wkt = 'POINT(%f %f)' % (output_feature.GetField('X_COORD'), output_feature.GetField('Y_COORD'))
         # print(wkt)
 
-        point = ogr.CreateGeometryFromWkt(wkt)  # creation of geometry from the wkt string
-        output_feature.SetGeometry(point)       # setting geometry to the feature
+        point = ogr.CreateGeometryFromWkt(wkt)      # creation of geometry from the wkt string
+        output_feature.SetGeometry(point)           # setting geometry to the feature
 
-        layer.CreateFeature(output_feature)  # creation of the feature with set geometry inside the layer
+        layer.CreateFeature(output_feature)         # creation of the feature with set geometry inside the layer
 
         # CLOSE FEATURE
         output_feature = None
@@ -136,12 +132,11 @@ def sample(input_shp, input_raster):
 
 
 def main():
-    """ Two functions:
-       1) Warp: reprojection of raster
-       2) sample: to sample the reprojected raster and to create new shapefiles with coordinates and height values
     """
-    #   gdal.Warp("dem_lombardia_100m_WGS32N.tif", "dem_lombardia_100m_ED32N.tif", dstSRS='EPSG:32632')
-    for shapefile in glob.glob('shapefile/*.shp'):
-        #sample(shapefile, "dem_lombardia_100m_WGS32N.tif")
-        #print(f'{shapefile} done!')
-        print("Done!")
+     sample: to sample the reprojected raster and to create new shapefiles with coordinates and height values
+    """
+    for shapefile in glob.glob('shapefile-v/*.shp'):
+        #sample("dem_lombardia_100m_ED32N.tif", shapefile)
+        print(f'{shapefile} done!')
+        #print("Done!")
+
