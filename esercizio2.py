@@ -1,8 +1,8 @@
 """
 SHAPEFILE CREATOR - automating geographic analysis stuff
 
-This script allows the user to add COORDDX, COORDY and HEIGHT values (got from DEM values) to a list of shapefiles
-    1) DEM raster re-projection (from Geographic rs to Projected rs)
+This script allows the user to create ESRI shapefiles with coordinates and height fields extracted by DEM sampling:
+    1) DEM raster re-projection (from one srs to another)
     2) Sample DEM to get coord_x, coord_y and height values, adding them as new fields to ESRI Shapefile
 
 This tool accepts raster files (.tif) and ESRI Shapefiles (.shp)
@@ -13,8 +13,8 @@ environment you are running this script in.
 This file can also be imported as a module and contains the following
 functions:
 
-    * sample - the sample function + add new fields to shapefile
-    * main function: reprojection + apply sample to shapefiles
+    * sample - sample raster + add new fields to shapefile
+    * main function: reprojection + sample all shapefiles in the wd
 
 """
 from osgeo import gdal
@@ -32,7 +32,7 @@ def sample(input_shp, input_raster):
     """ Function to sample the raster and add height values to ESRI shapefile"""
 
     #  INPUT RASTER:
-    dem = gdal.Open(input_raster)  # open raster
+    dem = gdal.Open(input_raster)                          # open raster
     raster_band = dem.GetRasterBand(1)
     gt_forward = dem.GetGeoTransform()                     # get geotransform
     gt_reverse = gdal.InvGeoTransform(gt_forward)          # get inverted geotransform
@@ -42,7 +42,7 @@ def sample(input_shp, input_raster):
     shape_name = input_shp.split(".")[0] + '_QUOTA.shp'   # new name for the output_shapefile
     data_source = driver.CreateDataSource(shape_name)     # initialization of shapefile
 
-    # import reference system:
+    # import spatial reference system:
     srs = osr.SpatialReference()  # import SR from EPSG
     srs.ImportFromEPSG(32632)
 
@@ -72,12 +72,12 @@ def sample(input_shp, input_raster):
     layer.CreateField(ogr.FieldDefn('HEIGHT', ogr.OFTReal))
 
     # INPUT SHAPEFILE:
-    dataset = ogr.Open(input_shp)
-    input_layer = dataset.GetLayer()
+    dataset = ogr.Open(input_shp)           # open input shapefile
+    input_layer = dataset.GetLayer()        # get layer
 
     # Iterating in the input_shapefile features in order to:
-    # 1) extract map coord_x, coord_y and calculate height (from pixel coords). Then add them to relative output_shapefile fields
-    # 2) extract input_shapefile fields values and add them to relative output_shapefile fields
+    # 1) extract input_shapefile fields values and add them to relative output_shapefile fields
+    # 2) extract map coord_x, coord_y and calculate height (from pixel coords). Then add them to relative output_shapefile fields
     for input_feature in input_layer:
         geom = input_feature.GetGeometryRef()
         mx, my = geom.GetX(), geom.GetY()  # COORDINATES IN MAP UNITS TO ADD TO OUTPUT_SHAPEFILE
@@ -87,7 +87,7 @@ def sample(input_shp, input_raster):
         px = floor(px)  # x pixel
         py = floor(py)  # y pixel
 
-        height = float(raster_band.ReadAsArray(px, py, 1, 1))   # HEIGHT VALUE OF FEATURE
+        height = float(raster_band.ReadAsArray(px, py, 1, 1))   # GET HEIGHT FROM RASTER VALUES MATRIX
 
         # definition of layer attribute of output_shapefile (element of attribute table in Qgis)
         output_feature = ogr.Feature(layer.GetLayerDefn())
@@ -138,7 +138,7 @@ def sample(input_shp, input_raster):
 def main():
     """ Two functions:
        1) Warp: reprojection of raster
-       2) sample: to sample the reprojected raster and to create new shapefiles with coordinates and height values
+       2) sample: sample the reprojected raster and create new shapefiles with coordinates and height values
     """
     #   gdal.Warp("dem_lombardia_100m_WGS32N.tif", "dem_lombardia_100m_ED32N.tif", dstSRS='EPSG:32632')
     for shapefile in glob.glob('shapefile/*.shp'):

@@ -2,7 +2,7 @@
 SHAPEFILE CREATOR - automating geographic analysis stuff
 
 This script allows the user to create ESRI Shapefiles (point vector) from DEM raster and csv files:
-    1) DEM raster re-projection (from Geographic rs to Projected rs)
+    1) DEM raster re-projection (from one srs to another)
     2) Sample DEM to get height information pixel-by-pixel, adding it to csv files as a field
     3) Create ESRI shapefiles from csv files
 
@@ -15,7 +15,7 @@ This file can also be imported as a module and contains the following
 functions:
 
     * sample - the sample function
-    * main -> re-projection of dem + sample to all csv files in the wd
+    * main -> re-projection of dem + sample all csv files in the wd
 """
 
 import os
@@ -43,43 +43,43 @@ def sample(input_csv, input_raster):
 
 
     # ESRI SHAPEFILE (.shp)
-    driver = ogr.GetDriverByName('ESRI Shapefile')        # get ESRI driver
+    driver = ogr.GetDriverByName('ESRI Shapefile')              # get ESRI driver
     shape_name = input_csv.split(".")[0]+'_QUOTA.shp'           # initialization of shapefile
     data_source = driver.CreateDataSource(shape_name)
 
-    # import reference system:
-    srs = osr.SpatialReference()    # import SR from EPSG
+    # import spatial reference system:
+    srs = osr.SpatialReference()    # import SRS from EPSG
     srs.ImportFromEPSG(32632)
 
     # creation of the layer of shapefile in GIS
-    layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)      # Point shapefile in this case
+    layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)      # Point-vector in this case
 
     # definition of shapefile fields
-    field_name = ogr.FieldDefn('name', ogr.OFTString)   # OFTString is the field format -> string
+    field_name = ogr.FieldDefn('name', ogr.OFTString)   # NAME: OFTString is the field format -> string
     field_name.SetWidth(100)                            # length of the field
     layer.CreateField(field_name)
 
-    layer.CreateField(ogr.FieldDefn('xcoord', ogr.OFTReal))     # -> number fields don't need width specification
-    layer.CreateField(ogr.FieldDefn('ycoord', ogr.OFTReal))
-    layer.CreateField(ogr.FieldDefn('height', ogr.OFTReal))
+    layer.CreateField(ogr.FieldDefn('xcoord', ogr.OFTReal))     # X_COORD -> number fields don't need width specification
+    layer.CreateField(ogr.FieldDefn('ycoord', ogr.OFTReal))     # Y_COORD
+    layer.CreateField(ogr.FieldDefn('height', ogr.OFTReal))     # HEIGHT
 
-    # APPENDING ALL THE ROWS INSIDE A LIST L FOR THE CREATION OF NEW CSV FILE WITH HEIGHT FIELD
+    # L -> list to store every csv line as a list, header not excluded
     L = []
 
-    # header of new csv with added height field
+    # header of new csv with height field
     header = ['COD_REG', 'COD_CM', 'COD_PRO', 'PRO_COM', 'COMUNE', 'NOME_TED', 'FLAG_CM', 'SHAPE_Leng', 'SHAPE_Area', 'xcoord', 'ycoord', 'height']
 
-    # CYCLE THROUGH INPUT CSV ROWS IN ORDER TO ASSIGN VALUES TO SHAPEFILE FIELDS
+    # CYCLE THROUGH INPUT CSV ROWS IN ORDER TO ASSIGN VALUES TO SHAPEFILE FIELDS AND APPEND EVERY ROW TO LIST L
     for row in reader:
-        list_row = []                               # New list to contain the row fields
+        list_row = []                               # New list to contain the single row field values
         utm_x = float(row['xcoord'])                # get values of utm coordinates
         utm_y = float(row['ycoord'])
-        px = int((utm_x - gt[0]) / gt[1])           # from raster coordinates to pixel coordinates
+        px = int((utm_x - gt[0]) / gt[1])           # from raster coordinates to pixel coordinates (inverse geotransform)
         py = int((utm_y - gt[3]) / gt[5])
         height = band.ReadAsArray(px, py, 1, 1)     # get height from pixel coordinates on the raster values matrix
         h = float(height)
 
-        # adding the values of the corresponding fields (as keys in dictionary) of csv in the list
+        # adding input csv values to list_row (as keys in dictionary)
         list_row.append(row['COD_REG'])
         list_row.append(row['COD_CM'])
         list_row.append(row['COD_PRO'])
@@ -91,11 +91,11 @@ def sample(input_csv, input_raster):
         list_row.append(row['SHAPE_Area'])
         list_row.append(row['xcoord'])
         list_row.append(row['ycoord'])
-        list_row.append(h)              # added height value
+        list_row.append(h)              # append height value
 
-        L.append(list_row)              # added the entire row to the L list
+        L.append(list_row)              # append the entire row to the L list
 
-        # definition of layer attribute (element of attribute table in Qgis)
+        # definition of layer attribute (element of attribute table in Qgis): FEATURE
         feature = ogr.Feature(layer.GetLayerDefn())
         # setting feature fields from csv values, reading them from keys
         feature.SetField('name', row['COMUNE'])
@@ -124,8 +124,8 @@ def sample(input_csv, input_raster):
 
     # ADD HEADER AND ALL THE VALUES TO OUTPUT CSV
     writer = csv.writer(csv_output, delimiter=',')              # write in the output
-    writer.writerow(header)
-    writer.writerows(L)
+    writer.writerow(header)                                     # write the header first
+    writer.writerows(L)                                         # then all the rows
 
     # CLOSE FILES
     my_csv.close()
@@ -144,7 +144,7 @@ def main():
     2) sample: to sample the reprojected raster
     """
     #   gdal.Warp("dem_lombardia_100m_WGS32N.tif", "dem_lombardia_100m_ED32N.tif", dstSRS='EPSG:32632')
-    for csv_file in glob.glob('csv/*.csv'):
+    for csv_file in glob.glob('csv/*.csv'):                 # sample every csv file in wd
         sample(csv_file, 'dem_lombardia_100m_WGS32N.tif')
         print(f'[{csv_file}] done!')
 

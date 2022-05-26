@@ -14,7 +14,7 @@ This file can also be imported as a module and contains the following
 functions:
 
     * sample - the sample function + add new fields to shapefile
-    * main function: apply sample to shapefiles
+    * main function: sample all shapefiles in wd
 """
 
 
@@ -39,15 +39,15 @@ def sample(input_raster, input_shp):
     
 
     # OUTPUT_SHAPEFILE (.shp)
-    driver = ogr.GetDriverByName('ESRI Shapefile')          # get ESRI driver
-    shape_name = input_shp.split(".")[0] + '_QUOTA_ED50rp.shp'     # new name for the output_shapefile
-    data_source = driver.CreateDataSource(shape_name)       # initialization of shapefile
+    driver = ogr.GetDriverByName('ESRI Shapefile')                  # get ESRI driver
+    shape_name = input_shp.split(".")[0] + '_QUOTA_ED50rp.shp'      # new name for the output_shapefile
+    data_source = driver.CreateDataSource(shape_name)               # initialization of shapefile
 
     # EXTRACTION OF DEM SRS
     srs = osr.SpatialReference(wkt=dem.GetProjection())    # wkt = "well-known-text" for representing geometries of vectors on a map
     # dem srs extracted
-    # creation of the layer of shapefile in GIS with the srs extracted
-    layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)  # point shapefile in this case
+    # creation of the layer of shapefile in GIS with the extracted srs
+    layer = data_source.CreateLayer(shape_name, srs, ogr.wkbPoint)  # point vector in this case
 
     # DEFINITION OF OUTPUT SHAPEFILE FIELDS
     # fields = [COD_REG,COD_CM,COD_PRO,PRO_COM,COMUNE,NOME_TED,FLAG_CM,SHAPE_Leng,SHAPE_Area,xcoord,ycoord,height]
@@ -72,7 +72,7 @@ def sample(input_raster, input_shp):
     layer.CreateField(ogr.FieldDefn('HEIGHT', ogr.OFTReal))
 
     # INPUT SHAPEFILE:
-    dataset = ogr.Open(input_shp)           # open shapefile
+    dataset = ogr.Open(input_shp)           # open input_shapefile
     input_layer = dataset.GetLayer()        # get access to layer
 
     # Iterating in the input_shapefile features in order to:
@@ -82,17 +82,17 @@ def sample(input_raster, input_shp):
         geom = input_feature.GetGeometryRef()
         mx, my = geom.GetX(), geom.GetY()  # COORDINATES IN MAP UNITS TO ADD TO OUTPUT_SHAPEFILE
 
-        # Convert from map to pixel coordinates.
+        # Convert from map to pixel coordinates (to get height values)
         px, py = gdal.ApplyGeoTransform(gt_reverse, mx, my)
         px = floor(px)  # x pixel
         py = floor(py)  # y pixel
 
-        height = float(dem_band.ReadAsArray(px, py, 1, 1))  # HEIGHT VALUE OF FEATURE
+        height = float(dem_band.ReadAsArray(px, py, 1, 1))  # HEIGHT VALUE OF FEATURE, READ FROM RASTER VALUES MATRIX
 
         # definition of layer attribute of output_shapefile (element of attribute table in Qgis)
         output_feature = ogr.Feature(layer.GetLayerDefn())
 
-        # setting feature fields from input_shapefile fields
+        # setting output_shapefile feature fields from input_shapefile fields
         output_feature.SetField('COD_REG', input_feature.GetField('COD_REG'))
         output_feature.SetField('COD_CM', input_feature.GetField('COD_CM'))
         output_feature.SetField('COD_PRO', input_feature.GetField('COD_PRO'))
@@ -109,7 +109,7 @@ def sample(input_raster, input_shp):
 
         # FIELDS CREATED
 
-        # DEFINITION OF SHAPEFILE GEOMETRY (so, definition of geometry of each feature)
+        # DEFINITION OF OUTPUT SHAPEFILE GEOMETRY (so, definition of geometry of each feature)
         # wkt = "well-known-text" for representing geometries of vectors on a map
         wkt = 'POINT(%f %f)' % (output_feature.GetField('X_COORD'), output_feature.GetField('Y_COORD'))
         # print(wkt)
@@ -133,7 +133,7 @@ def sample(input_raster, input_shp):
 
 def main():
     """
-     sample: to sample the reprojected raster and to create new shapefiles with coordinates and height values
+     sample: sample the reprojected raster and create new shapefiles with coordinates and height values
     """
     for shapefile in glob.glob('shapefile/*.shp'):
         sample("dem_lombardia_100m_ED32N.tif", shapefile)
